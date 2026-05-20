@@ -115,6 +115,43 @@ Build the rest of the interface from the table below, picking the correct standa
 | `ORDER_PARTNERS` | `BAPIPARNR` | TABLES |
 | `SALESDOCUMENT` | `BAPIVBELN-VBELN` (CHAR10) | EXPORT |
 
+#### MM – Material Master structures (BAPI_MATERIAL_SAVEDATA)
+
+`BAPI_MATERIAL_SAVEDATA` both creates and changes material master records. Pass only the views
+you need; activate each view with the corresponding flag in `HEADDATA`.
+
+| Parameter | Type / Structure | Direction | Notes |
+|---|---|---|---|
+| `HEADDATA` | `BAPIMATHEAD` | IMPORT | Material number, material type, industry sector, view-activation flags |
+| `CLIENTDATA` | `BAPIMATTR` | TABLES | Client-level basic data (material group, base UoM, old mat. no.) |
+| `CLIENTDATAX` | `BAPIMATTRX` | TABLES | Change flags for `CLIENTDATA` fields — set `'X'` per field to update |
+| `MATERIALDESCRIPTION` | `BAPIMAKT` | TABLES | Short text per language (LANGU + MATL_DESC) |
+| `PLANTDATA` | `BAPIMARD` | TABLES | Plant-level MRP/planning data (one row per plant) |
+| `PLANTDATAX` | `BAPIMARDX` | TABLES | Change flags for `PLANTDATA` |
+| `PURCHASINGDATA` | `BAPIMARC` | TABLES | Purchasing view per plant (purch. group, GR processing time, order unit) |
+| `PURCHASINGDATAX` | `BAPIMARCX` | TABLES | Change flags for `PURCHASINGDATA` |
+| `VALUATIONDATA` | `BAPIMMBW` | TABLES | Accounting/valuation view (price control, standard/moving-avg price) |
+| `VALUATIONDATAX` | `BAPIMMBWX` | TABLES | Change flags for `VALUATIONDATA` |
+| `SALESDATA` | `BAPIMVKE` | TABLES | Sales org / distribution channel view |
+| `SALESDATAX` | `BAPIMVKEX` | TABLES | Change flags for `SALESDATA` |
+| `UNITSOFMEASURE` | `BAPIMARM` | TABLES | Alternative units of measure (AUoM) |
+| `STORAGELOCATIONDATA` | `BAPIMARA` | TABLES | Storage location–level data |
+| `RETURN` | `BAPIRET2` | TABLES | Messages — mandatory |
+
+**HEADDATA view-activation flags** (`BAPIMATHEAD` fields set to `'X'`):
+
+| Field | View activated |
+|---|---|
+| `BASIC_VIEW` | Basic Data 1 & 2 |
+| `PURCHASE_VIEW` | Purchasing |
+| `MRP_VIEW` | MRP 1–4 |
+| `ACCOUNT_VIEW` | Accounting / Valuation |
+| `SALES_VIEW` | Sales: Sales Org. data |
+| `STORE_VIEW` | Storage / Warehouse |
+| `QUALITY_VIEW` | Quality Management |
+
+---
+
 #### PP – Production Order structures
 
 | Parameter | Type / Structure | Direction |
@@ -231,6 +268,12 @@ Scaffold a custom BAPI Z_BAPI_GOODSMVT_CREATE for a goods receipt
 against a purchase order. Include header, item, and return parameters.
 ```
 
+```
+Create a wrapper BAPI to create or update a material master record
+for material type ROH, with basic data, MRP for plant 1000, and
+standard price. Generate the full ABAP code.
+```
+
 ### Advanced Usage
 
 ```
@@ -272,6 +315,258 @@ Followed by the full ABAP function module stub.
 
 ---
 
+## Worked Example: Material Master Create / Update
+
+### Scenario
+
+An external system (ERP integration middleware or BTP) needs to create a new raw material
+or update an existing one in SAP ECC. The call must set basic data, MRP settings for one
+plant, and the standard price for accounting — in a single RFC-callable function module.
+
+### Step 1 — Choose the approach
+
+The standard SAP BAPI `BAPI_MATERIAL_SAVEDATA` already handles both create and change
+(it auto-detects from the material number). The recommended pattern is to build a
+**thin Z-wrapper** that simplifies the interface for the caller:
+
+- Exposes only the fields the integration actually needs
+- Fills the verbose `X`-flag structures automatically
+- Handles `BAPI_TRANSACTION_COMMIT` / `BAPI_TRANSACTION_ROLLBACK` internally
+  (acceptable for a dedicated wrapper; the caller should not need to know SAP locking)
+
+### Step 2 — Interface design
+
+```
+BAPI name: Z_BAPI_MATERIAL_MAINTAINDATA
+
+IMPORTING  (all VALUE() — RFC pass-by-value)
+  VALUE(I_MATERIAL)     TYPE  MARA-MATNR         " 18-char material number (leading zeros OK)
+  VALUE(I_IND_SECTOR)   TYPE  MARA-MBRSH          " Industry sector: 'M' Mech. Eng., 'A' Plant...
+  VALUE(I_MATL_TYPE)    TYPE  MARA-MTART          " e.g. ROH, FERT, HALB, HIBE
+  VALUE(I_PLANT)        TYPE  MARC-WERKS          " Plant for MRP + accounting views
+  VALUE(I_BASE_UOM)     TYPE  MARA-MEINS          " Base unit of measure  e.g. 'KG', 'EA', 'L'
+  VALUE(I_MATL_GROUP)   TYPE  MARA-MATKL          " Material group
+  VALUE(I_DESCRIPTION)  TYPE  MAKT-MAKTX          " Short text (language = sy-langu)
+  VALUE(I_MRP_TYPE)     TYPE  MARC-DISMM          " e.g. 'PD' (MRP), 'ND' (no planning)
+  VALUE(I_LOT_SIZE)     TYPE  MARC-DISLS          " Lot-sizing procedure e.g. 'EX', 'FX'
+  VALUE(I_PRICE_CTRL)   TYPE  MBEW-VPRSV          " 'S' standard price / 'V' moving average
+  VALUE(I_STD_PRICE)    TYPE  MBEW-STPRS          " Standard price (used when I_PRICE_CTRL = 'S')
+  VALUE(I_MOVING_AVE)   TYPE  MBEW-VERPR          " Moving avg price (used when = 'V')
+
+EXPORTING
+  VALUE(E_MATERIAL)     TYPE  MARA-MATNR          " Confirmed material number (after internal numbering)
+
+TABLES
+  RETURN                STRUCTURE BAPIRET2        " Messages — mandatory
+```
+
+### Step 3 — Full ABAP stub
+
+```abap
+FUNCTION Z_BAPI_MATERIAL_MAINTAINDATA.
+*"----------------------------------------------------------------------
+*"  Create or update a material master record (basic, MRP, accounting).
+*"  Wraps BAPI_MATERIAL_SAVEDATA and commits the transaction.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"    VALUE(I_MATERIAL)    TYPE  MARA-MATNR
+*"    VALUE(I_IND_SECTOR)  TYPE  MARA-MBRSH
+*"    VALUE(I_MATL_TYPE)   TYPE  MARA-MTART
+*"    VALUE(I_PLANT)       TYPE  MARC-WERKS
+*"    VALUE(I_BASE_UOM)    TYPE  MARA-MEINS
+*"    VALUE(I_MATL_GROUP)  TYPE  MARA-MATKL
+*"    VALUE(I_DESCRIPTION) TYPE  MAKT-MAKTX
+*"    VALUE(I_MRP_TYPE)    TYPE  MARC-DISMM
+*"    VALUE(I_LOT_SIZE)    TYPE  MARC-DISLS
+*"    VALUE(I_PRICE_CTRL)  TYPE  MBEW-VPRSV
+*"    VALUE(I_STD_PRICE)   TYPE  MBEW-STPRS
+*"    VALUE(I_MOVING_AVE)  TYPE  MBEW-VERPR
+*"  EXPORTING
+*"    VALUE(E_MATERIAL)    TYPE  MARA-MATNR
+*"  TABLES
+*"    RETURN STRUCTURE BAPIRET2
+*"----------------------------------------------------------------------
+
+  " ── Local data ────────────────────────────────────────────────────
+  DATA: ls_headdata    TYPE bapimathead,
+        ls_clientdata  TYPE bapimattr,
+        ls_clientdatax TYPE bapimattrx,
+        ls_plantdata   TYPE bapimard,
+        ls_plantdatax  TYPE bapimardx,
+        ls_valdata     TYPE bapimmbw,
+        ls_valdatax    TYPE bapimmbwx,
+        ls_desc        TYPE bapimakt,
+        lt_clientdata  TYPE TABLE OF bapimattr,
+        lt_clientdatax TYPE TABLE OF bapimattrx,
+        lt_plantdata   TYPE TABLE OF bapimard,
+        lt_plantdatax  TYPE TABLE OF bapimardx,
+        lt_valdata     TYPE TABLE OF bapimmbw,
+        lt_valdatax    TYPE TABLE OF bapimmbwx,
+        lt_desc        TYPE TABLE OF bapimakt,
+        ls_return      TYPE bapiret2.
+
+  " ── Input validation ──────────────────────────────────────────────
+  IF i_base_uom IS INITIAL.
+    ls_return-type    = 'E'.
+    ls_return-message = 'Base unit of measure is mandatory'.
+    APPEND ls_return TO return.
+    RETURN.
+  ENDIF.
+
+  IF i_price_ctrl <> 'S' AND i_price_ctrl <> 'V'.
+    ls_return-type    = 'E'.
+    ls_return-message = 'Price control must be S (standard) or V (moving average)'.
+    APPEND ls_return TO return.
+    RETURN.
+  ENDIF.
+
+  " ── HEADDATA — material identity + view activation flags ──────────
+  ls_headdata-material    = i_material.      " blank = internal number assignment
+  ls_headdata-ind_sector  = i_ind_sector.    " e.g. 'M'
+  ls_headdata-matl_type   = i_matl_type.     " e.g. 'ROH'
+  ls_headdata-basic_view  = 'X'.
+  ls_headdata-mrp_view    = 'X'.
+  ls_headdata-account_view = 'X'.
+
+  " ── CLIENTDATA — basic data ───────────────────────────────────────
+  ls_clientdata-material   = i_material.
+  ls_clientdata-base_uom   = i_base_uom.
+  ls_clientdata-matl_group = i_matl_group.
+  APPEND ls_clientdata TO lt_clientdata.
+
+  " ── CLIENTDATAX — flag every field being set ──────────────────────
+  ls_clientdatax-material   = i_material.
+  ls_clientdatax-base_uom   = 'X'.
+  ls_clientdatax-matl_group = 'X'.
+  APPEND ls_clientdatax TO lt_clientdatax.
+
+  " ── MATERIALDESCRIPTION — short text ──────────────────────────────
+  ls_desc-material  = i_material.
+  ls_desc-langu     = sy-langu.
+  ls_desc-matl_desc = i_description.
+  APPEND ls_desc TO lt_desc.
+
+  " ── PLANTDATA — MRP settings ──────────────────────────────────────
+  ls_plantdata-material  = i_material.
+  ls_plantdata-plant     = i_plant.
+  ls_plantdata-mrp_type  = i_mrp_type.
+  ls_plantdata-lot_size  = i_lot_size.
+  APPEND ls_plantdata TO lt_plantdata.
+
+  ls_plantdatax-material  = i_material.
+  ls_plantdatax-plant     = i_plant.
+  ls_plantdatax-mrp_type  = 'X'.
+  ls_plantdatax-lot_size  = 'X'.
+  APPEND ls_plantdatax TO lt_plantdatax.
+
+  " ── VALUATIONDATA — accounting / price ────────────────────────────
+  ls_valdata-material   = i_material.
+  ls_valdata-val_area   = i_plant.           " valuation area = plant in standard config
+  ls_valdata-price_ctrl = i_price_ctrl.
+  IF i_price_ctrl = 'S'.
+    ls_valdata-std_price = i_std_price.
+  ELSE.
+    ls_valdata-moving_ave = i_moving_ave.
+  ENDIF.
+  APPEND ls_valdata TO lt_valdata.
+
+  ls_valdatax-material   = i_material.
+  ls_valdatax-val_area   = i_plant.
+  ls_valdatax-price_ctrl = 'X'.
+  ls_valdatax-std_price  = 'X'.
+  ls_valdatax-moving_ave = 'X'.
+  APPEND ls_valdatax TO lt_valdatax.
+
+  " ── Call standard BAPI ────────────────────────────────────────────
+  CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
+    EXPORTING
+      headdata            = ls_headdata
+    IMPORTING
+      return              = ls_return       " single RETURN for header errors
+    TABLES
+      clientdata          = lt_clientdata
+      clientdatax         = lt_clientdatax
+      materialdescription = lt_desc
+      plantdata           = lt_plantdata
+      plantdatax          = lt_plantdatax
+      valuationdata       = lt_valdata
+      valuationdatax      = lt_valdatax
+      returnmessages      = return.         " full message table
+
+  " ── Check for errors before committing ───────────────────────────
+  READ TABLE return WITH KEY type = 'E' TRANSPORTING NO FIELDS.
+  IF sy-subrc = 0.
+    CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+    RETURN.
+  ENDIF.
+
+  READ TABLE return WITH KEY type = 'A' TRANSPORTING NO FIELDS.
+  IF sy-subrc = 0.
+    CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+    RETURN.
+  ENDIF.
+
+  " ── Commit ────────────────────────────────────────────────────────
+  CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+    EXPORTING
+      wait = 'X'.                           " synchronous commit — wait for update task
+
+  " ── Return confirmed material number ─────────────────────────────
+  e_material = i_material.
+  IF e_material IS INITIAL.
+    " If internal number assignment was used, read back the number
+    READ TABLE return INTO ls_return WITH KEY type = 'S'.
+    " The material number is typically in ls_return-message_v1 for internal numbering
+    e_material = ls_return-message_v1.
+  ENDIF.
+
+ENDFUNCTION.
+```
+
+### Step 4 — Caller pattern (ABAP report / program)
+
+```abap
+DATA: lt_return  TYPE TABLE OF bapiret2,
+      lv_matnr   TYPE mara-matnr.
+
+CALL FUNCTION 'Z_BAPI_MATERIAL_MAINTAINDATA'
+  EXPORTING
+    i_material    = '000000000000012345'
+    i_ind_sector  = 'M'              " Mechanical Engineering
+    i_matl_type   = 'ROH'            " Raw material
+    i_plant       = '1000'
+    i_base_uom    = 'KG'
+    i_matl_group  = '001'
+    i_description = 'Steel plate 10mm'
+    i_mrp_type    = 'PD'
+    i_lot_size    = 'EX'
+    i_price_ctrl  = 'S'
+    i_std_price   = '15.50'
+    i_moving_ave  = '0.00'
+  IMPORTING
+    e_material    = lv_matnr
+  TABLES
+    return        = lt_return.
+
+" Evaluate messages
+LOOP AT lt_return INTO DATA(ls_msg).
+  WRITE: / ls_msg-type, ls_msg-message.
+ENDLOOP.
+```
+
+### Key design decisions in this example
+
+| Decision | Rationale |
+|---|---|
+| Wrapper calls `BAPI_TRANSACTION_COMMIT` internally | Simplifies integration — middleware caller does not need SAP LUW knowledge |
+| `WAIT = 'X'` on COMMIT | Guarantees the material record is written before the RFC reply returns |
+| Separate `X`-flag structures | Allows partial updates — only flagged fields are written; others left untouched |
+| Rollback on first E/A message | Prevents partial saves when one view fails validation |
+| Valuation area = plant | Standard SAP config; in split-valuation systems this needs adjustment |
+
+---
+
 ## Tips
 
 - Always check whether a standard SAP BAPI already covers the use case before building a custom one — search in transaction **BAPI** or SE37 with pattern `BAPI_<OBJECT>_*`.
@@ -282,6 +577,7 @@ Followed by the full ABAP function module stub.
 
 ## Common Use Cases
 
+- Creating or updating material master records from a PLM, PIM, or MDM system
 - Creating a new PO from an external ordering portal via RFC/web service
 - Posting goods receipts from a WMS or IoT scanning system
 - Creating sales orders from an e-commerce platform integration
