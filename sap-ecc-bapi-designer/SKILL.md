@@ -567,6 +567,388 @@ ENDLOOP.
 
 ---
 
+## Material Master Field Reference — All Views
+
+Every view corresponds to one `BAPI_MATERIAL_SAVEDATA` TABLES parameter (and its `X`-flag companion).
+Activate each view with the matching flag in `HEADDATA` (type `BAPIMATHEAD`).
+
+---
+
+### HEADDATA — `BAPIMATHEAD` (IMPORT, not a table)
+
+Identifies the material and controls which views are created/updated.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MARA-MATNR` | Material number (18-char). Leave blank for internal number assignment |
+| `IND_SECTOR` | `MARA-MBRSH` | Industry sector: `M` Mechanical Eng, `A` Plant Eng, `B` Pharma, `C` Chemicals, `D` Retail, `E` Service, `F` Food, `L` Beverages... |
+| `MATL_TYPE` | `MARA-MTART` | Material type: `ROH` Raw, `HALB` Semi-finished, `FERT` Finished, `HIBE` Op. supplies, `VERP` Packaging, `DIEN` Service, `NLAG` Non-stock, `UNBW` Non-valuated |
+| `BASIC_VIEW` | — | `'X'` → activate Basic Data 1 & 2 |
+| `PURCHASE_VIEW` | — | `'X'` → activate Purchasing |
+| `MRP_VIEW` | — | `'X'` → activate MRP 1–4 |
+| `ACCOUNT_VIEW` | — | `'X'` → activate Accounting / Valuation |
+| `COST_VIEW` | — | `'X'` → activate Costing 1 & 2 |
+| `SALES_VIEW` | — | `'X'` → activate Sales: Sales Org Data |
+| `STORE_VIEW` | — | `'X'` → activate Plant Data / Storage |
+| `QUALITY_VIEW` | — | `'X'` → activate Quality Management |
+| `FORECAST_VIEW` | — | `'X'` → activate Forecasting |
+| `WORK_SCHED_VIEW` | — | `'X'` → activate Work Scheduling |
+
+---
+
+### MATERIALDESCRIPTION — `BAPIMAKT` (TABLES)
+
+One row per language. No `X`-flag companion needed — description is always fully replaced.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MAKT-MATNR` | Material number |
+| `LANGU` | `MAKT-SPRAS` | Language key (e.g. `EN`, `DE`, `FR`) |
+| `MATL_DESC` | `MAKT-MAKTX` | Short text (max 40 chars) |
+
+---
+
+### CLIENTDATA — `BAPIMATTR` + `BAPIMATTRX` (TABLES)
+
+Basic Data 1 & 2 views. Client-level fields from `MARA`. One row per material.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MARA-MATNR` | Material number |
+| `BASE_UOM` | `MARA-MEINS` | Base unit of measure (`KG`, `EA`, `L`, `M`, `PC` …) — **mandatory** |
+| `MATL_GROUP` | `MARA-MATKL` | Material group |
+| `DIVISION` | `MARA-SPART` | Division (for SD relevance) |
+| `PROD_HIER` | `MARA-PRDHA` | Product hierarchy (up to 18 chars) |
+| `OLD_MAT_NUM` | `MARA-BISMT` | Old material number (legacy cross-reference) |
+| `XPLANT_STATUS` | `MARA-MSTAE` | Cross-plant material status (blocks procurement / usage) |
+| `XPLANT_STATTOUSE` | `MARA-MSTDE` | Valid-from date for cross-plant status |
+| `ITEM_CAT_GRP` | `MARA-MTPOS_MARA` | Item category group (SD relevance: `NORM`, `LUMF`, `ERLA` …) |
+| `TRANSPORT_GRP` | `MARA-TRAGR` | Transportation group |
+| `GROSS_WEIGHT` | `MARA-BRGEW` | Gross weight |
+| `NET_WEIGHT` | `MARA-NTGEW` | Net weight |
+| `UNIT_OF_WT` | `MARA-GEWEI` | Weight unit (`KG`, `G`, `LB` …) |
+| `VOLUME` | `MARA-VOLUM` | Volume |
+| `VOLUME_UNIT` | `MARA-VOLEH` | Volume unit (`L`, `ML`, `CM3` …) |
+| `SIZE_DIM` | `MARA-GROES` | Size / dimensions (free text, 32 chars) |
+| `CONTAINER_REQMTS` | `MARA-BEHVO` | Container requirements |
+| `TEMP_COND` | `MARA-TEMPB` | Temperature conditions indicator |
+| `STORAGE_CONDS` | `MARA-LGBKL` | Storage conditions |
+| `HZD_MATL_NUM` | `MARA-PROFL` | Hazardous material number |
+| `BATCH_MGMT` | `MARA-XCHPF` | Batch management requirement (`X` = batch-managed) |
+| `CONFIGURABLE` | `MARA-KZKFG` | Material is configurable (`X` = yes) |
+| `SERIAL_NO_PROFILE` | `MARA-SPROF` | Serialization profile |
+| `INDUSTRY_STND` | `MARA-NORMT` | Industry standard description (DIN, ISO …) |
+| `CATALOG_PROFILE` | `MARA-RBNRM` | Catalog profile |
+| `EXT_MATL_GRP` | `MARA-EXTWG` | External material group |
+| `CROSS_PLANT_MATL_STATUS` | `MARA-MSTAE` | (same as XPLANT_STATUS; alias in some EhP releases) |
+
+---
+
+### UNITSOFMEASURE — `BAPIMARM` + `BAPIMARMX` (TABLES)
+
+Alternative units of measure (AUoM). One row per AUoM per material.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MARM-MATNR` | Material number |
+| `ALT_UNIT` | `MARM-MEINH` | Alternative unit of measure (e.g. `PAL`, `BOX`, `DZ`) |
+| `CONVERTER_NUMER` | `MARM-UMREZ` | Numerator of conversion factor (alt-UoM → base-UoM) |
+| `CONVERTER_DENOM` | `MARM-UMREN` | Denominator of conversion factor |
+| `GROSS_WEIGHT` | `MARM-BRGEW` | Gross weight in this AUoM |
+| `NET_WEIGHT` | `MARM-NTGEW` | Net weight in this AUoM |
+| `UNIT_OF_WT` | `MARM-GEWEI` | Weight unit |
+| `VOLUME` | `MARM-VOLUM` | Volume in this AUoM |
+| `VOLUME_UNIT` | `MARM-VOLEH` | Volume unit |
+| `LENGTH` | `MARM-LAENG` | Length |
+| `WIDTH` | `MARM-BREIT` | Width |
+| `HEIGHT` | `MARM-HOEHE` | Height |
+| `UNIT_DIM` | `MARM-MEABM` | Unit of dimension (`MM`, `CM`, `M`, `IN` …) |
+| `MAX_STACK_FACTOR` | `MARM-MAXSTK` | Maximum stacking factor |
+
+---
+
+### INTERNATIONALARTICLENUMBERS — `BAPIMEAN` (TABLES)
+
+EAN / GTIN / UPC codes per unit of measure. No `X`-flag companion.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MEAN-MATNR` | Material number |
+| `ALT_UNIT` | `MEAN-MEINH` | Unit of measure the EAN belongs to (base UoM or AUoM) |
+| `EAN_UPC` | `MEAN-EAN11` | EAN / UPC / GTIN code (max 18 chars) |
+| `EAN_CATEGORY` | `MEAN-NUMTP` | EAN category: `EAN8`, `EAN13`, `UPC-A`, `GTIN14` … |
+| `MAIN_EAN` | `MEAN-HPEAN` | `'X'` = this is the main / preferred EAN for this UoM |
+
+---
+
+### SALESDATA — `BAPIMVKE` + `BAPIMVKEX` (TABLES)
+
+Sales Org Data 1 & 2 views. One row per sales org / distribution channel combination.
+Activate with `HEADDATA-SALES_VIEW = 'X'`.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MVKE-MATNR` | Material number |
+| `SALES_ORG` | `MVKE-VKORG` | Sales organization |
+| `DISTR_CHAN` | `MVKE-VTWEG` | Distribution channel |
+| `SALES_UNIT` | `MVKE-VRKME` | Sales unit (if different from base UoM) |
+| `ITEM_CAT_GRP` | `MVKE-MTPOS` | Item category group (overrides client-level if set) |
+| `ACCT_ASSMT_GRP` | `MVKE-KTGRM` | Account assignment group (revenue account determination) |
+| `DELIVERING_PLANT` | `MVKE-DWERK` | Delivering plant (default for sales orders) |
+| `PROD_HIER` | `MVKE-PRODH` | Product hierarchy (sales-org level) |
+| `MATL_PRICING_GRP` | `MVKE-KONDM` | Material pricing group |
+| `COMMISSION_GRP` | `MVKE-PROVG` | Commission group |
+| `CASHDISC_IND` | `MVKE-SKTOF` | Cash discount indicator (`X` = not eligible) |
+| `VAR_SALES_UNIT` | `MVKE-VAVME` | Variable sales unit not allowed (`X` = fixed) |
+| `MIN_ORDER_QTY` | `MVKE-MINBF` | Minimum order quantity in sales |
+| `STAT_VALUE` | `MVKE-STAWN` | Statistical value / customs tariff number |
+| `MATL_STATS_GRP` | `MVKE-MVGR1` | Material statistics group 1 |
+| `VOLUME_REBATE_GRP` | `MVKE-MVGR2` | Volume rebate group |
+| `TRANS_GRP_MVKE` | `MVKE-MVGR3` | Material group 3 |
+| `SHIPPING_MATL_TYPE`| `MVKE-MVGR4` | Material group 4 |
+| `AUTH_GRP` | `MVKE-MVGR5` | Material group 5 |
+
+---
+
+### PURCHASINGDATA — `BAPIMARC` + `BAPIMARCX` (TABLES)
+
+Purchasing view. One row per plant.
+Activate with `HEADDATA-PURCHASE_VIEW = 'X'`.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MARC-MATNR` | Material number |
+| `PLANT` | `MARC-WERKS` | Plant |
+| `PURCH_GROUP` | `MARC-EKGRP` | Purchasing group |
+| `ORDER_UNIT` | `MARC-BSTME` | Order unit (if different from base UoM) |
+| `VAR_OD_UNIT` | `MARC-BSTME` | Variable order unit allowed (`X` = yes) |
+| `OVER_DEL_TOL` | `MARC-UEBTO` | Over-delivery tolerance (%) |
+| `UNDER_DEL_TOL` | `MARC-UNTTO` | Under-delivery tolerance (%) |
+| `UNLIMITED_OVER_DEL`| `MARC-UEBTK` | Unlimited over-delivery allowed (`X`) |
+| `GR_PROC_TIME` | `MARC-WEBAZ` | GR processing time (workdays) |
+| `MATL_FRGHT_GRP` | `MARC-MFRGR` | Material freight group |
+| `PURCH_VAL_KEY` | `MARC-EKWSL` | Purchasing value key (reminder / tolerance profile) |
+| `SOURCE_LIST` | `MARC-KORDB` | Source list required (`1` = yes) |
+| `QUOTA_ARR_USAGE` | `MARC-USEQU` | Quota arrangement usage |
+| `AUTO_PO` | `MARC-AUTPURCHORD` | Automatic purchase order (`X` = allowed) |
+| `TAX_IND` | `MARC-STEUC` | Tax indicator for material |
+| `MANUFACTURER` | `MARC-MFRNR` | Manufacturer (vendor number) |
+| `MFR_PART_PROFILE` | `MARC-MFRPN` | Manufacturer part number profile |
+| `INT_COMMNT_CAT` | `MARC-EKALR` | Material is relevant for internal commerce |
+| `PLANT_STATUS` | `MARC-MMSTA` | Plant-specific material status |
+| `PLANT_STATUS_DATE` | `MARC-MMSTD` | Valid-from date for plant status |
+| `MIN_REM_SHELF_LIFE`| `MARC-MHDLP` | Minimum remaining shelf life (days) |
+| `TOTAL_SHELF_LIFE` | `MARC-MHDRZ` | Total shelf life (days) |
+
+---
+
+### PLANTDATA — `BAPIMARD` + `BAPIMARDX` (TABLES)
+
+MRP 1–4 and Work Scheduling views. One row per plant.
+Activate with `HEADDATA-MRP_VIEW = 'X'` and/or `HEADDATA-WORK_SCHED_VIEW = 'X'`.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MARC-MATNR` | Material number |
+| `PLANT` | `MARC-WERKS` | Plant |
+| **MRP 1** | | |
+| `MRP_TYPE` | `MARC-DISMM` | MRP type: `PD` MRP, `VB` Reorder point, `ND` No planning, `VM` Auto reorder |
+| `MRP_CTRLLER` | `MARC-DISPO` | MRP controller (planner group) |
+| `ABC_INDICATOR` | `MARC-ABCIN` | ABC indicator |
+| `PLANT_MRP_AREA` | `MARC-BERID` | MRP area |
+| `PROC_TYPE` | `MARC-BESKZ` | Procurement type: `E` In-house, `F` External, `X` Both |
+| `SPEC_PROC` | `MARC-SOBSL` | Special procurement key (e.g. `10` phantom, `30` subcontracting) |
+| `LOT_SIZE` | `MARC-DISLS` | Lot-sizing procedure: `EX` Exact, `FX` Fixed, `HB` Replenish to max, `MB` Monthly |
+| `MIN_LOT_SIZE` | `MARC-BSTMI` | Minimum lot size |
+| `MAX_LOT_SIZE` | `MARC-BSTMA` | Maximum lot size |
+| `FIXED_LOT` | `MARC-BSTFE` | Fixed lot size |
+| `MAX_STOCK` | `MARC-MABST` | Maximum stock level |
+| `REORDER_PT` | `MARC-MINBE` | Reorder point |
+| `SAFETY_STCK` | `MARC-EISBE` | Safety stock |
+| `ORDERING_COSTS` | `MARC-BSTKO` | Order costs (for EOQ lot-sizing) |
+| **MRP 2** | | |
+| `PLND_DELRY` | `MARC-PLIFZ` | Planned delivery time (calendar days) |
+| `GR_PROC_TIME` | `MARC-WEBAZ` | Goods receipt processing time (workdays) |
+| `SCHED_MARGIN_KEY` | `MARC-FHORI` | Scheduling margin key (float before/after production) |
+| `IN_HOUSE_PRD` | `MARC-DZEIT` | In-house production time (workdays) |
+| `LOT_SIZE_IND` | `MARC-DISLS` | (same field — context of MRP 2 planning) |
+| `BACKFLUSH` | `MARC-RGEKZ` | Backflush indicator (`1` = always) |
+| `SAFETY_TIME_IND` | `MARC-IPRKZ` | Safety time indicator |
+| `SAFETY_TIME_DAYS` | `MARC-EISLO` | Safety time period (workdays) |
+| `PLANNING_CALENDAR`| `MARC-MFPLA` | Planning calendar (for period lot sizes) |
+| `AVAIL_CHECK` | `MARC-MTVFP` | Availability check rule (ATP checking rule) |
+| **MRP 3** | | |
+| `STRATEGY_GRP` | `MARC-STRGR` | Planning strategy group (e.g. `10` MTS, `20` MTO, `40` planning with final assembly) |
+| `CONS_MODE` | `MARC-VRMOD` | Consumption mode: `1` backward, `2` forward, `3` both |
+| `FWRD_CONS_PER` | `MARC-VINT1` | Forward consumption period (workdays) |
+| `BKWD_CONS_PER` | `MARC-VINT2` | Backward consumption period (workdays) |
+| `MIXED_MRP` | `MARC-MISCHKZ` | Mixed MRP indicator |
+| `ASSEMBLY_SCRAP` | `MARC-AUSSS` | Assembly scrap (%) |
+| `PLANNING_MATL` | `MARC-LGPRO` | Planning material (for planning with planning material) |
+| `PLANNING_PLANT` | `MARC-LGFSB` | Planning plant |
+| `INDIVIDUAL_COLL` | `MARC-SBDKZ` | Individual / collective requirements: `1` individual, `2` collective |
+| `DISCONTINUED_IND` | `MARC-DISKZ` | Discontinuation indicator |
+| `FOLLOW_UP_MATL` | `MARC-NFMAT` | Follow-up material number |
+| **MRP 4** | | |
+| `SELECTION_METHOD` | `MARC-AUSME` | Selection method (BOM / routing explosion) |
+| `COMPONENT_SCRAP` | `MARC-AUSSS` | Component scrap in % (also used in MRP 4) |
+| `REPETITIVE_MFG` | `MARC-MMSTA` | Repetitive manufacturing allowed |
+| `REM_PROFILE` | `MARC-RWPRO` | Repetitive manufacturing profile |
+| `BULK_MATERIAL` | `MARC-SHFLG` | Bulk material indicator |
+| `CO_PRODUCT` | `MARC-KUPPROD` | Co-product |
+| **Work Scheduling** | | |
+| `PROD_SCHED_PROFILE`| `MARC-FEVOR` | Production scheduler |
+| `SETUP_TIME` | `MARC-RUEZT` | Setup / teardown time |
+| `INTEROP_TIME` | `MARC-INSMK` | Interoperation time |
+| `BASE_QUANTITY` | `MARC-BASMG` | Base quantity for production times |
+| `PROD_UNIT` | `MARC-FEREH` | Production unit |
+| `UNDER_DEL_TOL` | `MARC-UNETO` | Underdelivery tolerance (work scheduling context) |
+| `OVER_DEL_TOL_WS` | `MARC-UETTO` | Overdelivery tolerance (work scheduling context) |
+| `UNLIMITED_OVER_DEL_WS`| `MARC-UETTO` | Unlimited overdelivery (work scheduling) |
+| `ISSUE_SLOC` | `MARC-LGPRO` | Issue storage location (goods issue for production) |
+
+---
+
+### FORECASTPARAMETERS — `BAPIMAVEM` + `BAPIMAVEMX` (TABLES)
+
+Forecasting view. One row per plant.
+Activate with `HEADDATA-FORECAST_VIEW = 'X'`.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MPLA-MATNR` | Material number |
+| `PLANT` | `MPLA-WERKS` | Plant |
+| `PERIOD_IND_MPOP` | `MPOP-PERAF` | Period indicator: `M` Monthly, `W` Weekly, `D` Daily |
+| `FISCAL_YEAR_VAR` | `MPLA-PERIV` | Fiscal year variant |
+| `FORECAST_MODEL` | `MPLA-PRMOD` | Forecast model: `D` Constant, `T` Trend, `S` Seasonal, `X` Auto |
+| `PERIOD_IND` | `MPLA-PERIV` | Period indicator at material level |
+| `INIT_PERIODS` | `MPLA-INSMK` | Initialization periods |
+| `TRACKING_LIMIT` | `MPLA-TRSPQ` | Tracking limit (MAD / sigma for outlier detection) |
+| `MODEL_SELECTION` | `MPLA-AUTOM` | Automatic model selection (`X` = yes) |
+| `EXSMOOTHING_FAC` | `MPLA-ALPHA` | Alpha (exponential smoothing factor) |
+| `TREND_SMOOTH_FAC` | `MPLA-BETA` | Beta (trend smoothing factor) |
+| `SEAS_SMOOTH_FAC` | `MPLA-GAMMA` | Gamma (seasonal smoothing factor) |
+| `SIGMA` | `MPLA-SIGMA` | Sigma (outlier detection factor) |
+| `PERIODS_PER_SEASON`| `MPLA-SAISO` | Periods per seasonal cycle |
+| `HIST_PERIODS` | `MPLA-ANZPR` | Number of historical periods to use |
+
+---
+
+### STORAGELOCATIONDATA — `BAPIMARA` + `BAPIMARAX` (TABLES)
+
+Plant Data / Storage 1 & 2 views. One row per plant / storage location.
+Activate with `HEADDATA-STORE_VIEW = 'X'`.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MARD-MATNR` | Material number |
+| `PLANT` | `MARC-WERKS` | Plant |
+| `STGE_LOC` | `MARD-LGORT` | Storage location |
+| `WM_WAREHOSENUMBER`| `MLGN-LGNUM` | WM warehouse number |
+| `WM_STORAGETYPE` | `MLGT-LGTYP` | WM storage type |
+| `BATCH_RECORD` | `MARC-XCHAR` | Batch classification (`X` = batch-managed at storage level) |
+| `MAX_STGE_PERIOD` | `MARC-MHDRZ` | Maximum storage period |
+| `STGE_CONDITION` | `MARC-LGBKL` | Storage condition |
+| `TEMP_CONDITIONS` | `MARC-TEMPB` | Temperature conditions |
+| `HAZMAT_NUMBER` | `MARC-PROFL` | Hazardous material / dangerous goods indicator |
+| `CC_PHY_INV_IND` | `MARC-STLAL` | Cycle counting physical inventory indicator |
+| `UNIT_OF_ISSUE` | `MARC-AUSME` | Unit of issue (for goods issue from production / WM) |
+| `PROFIT_CENTER` | `MARC-PRCTR` | Profit center |
+
+---
+
+### VALUATIONDATA — `BAPIMMBW` + `BAPIMMBWX` (TABLES)
+
+Accounting 1 & 2 views. One row per valuation area (usually = plant).
+Activate with `HEADDATA-ACCOUNT_VIEW = 'X'`.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MBEW-MATNR` | Material number |
+| `VAL_AREA` | `MBEW-BWKEY` | Valuation area (= plant in standard config) |
+| `VAL_TYPE` | `MBEW-BWTAR` | Valuation type (for split valuation only; leave blank otherwise) |
+| `PRICE_CTRL` | `MBEW-VPRSV` | Price control: `S` Standard price, `V` Moving average price |
+| `STD_PRICE` | `MBEW-STPRS` | Standard price (used when `PRICE_CTRL = 'S'`) |
+| `MOVING_AVE` | `MBEW-VERPR` | Moving average price (used when `PRICE_CTRL = 'V'`) |
+| `PRICE_UNIT` | `MBEW-PEINH` | Price unit (quantity to which price refers, e.g. `1`, `100`) |
+| `VAL_CLASS` | `MBEW-BKLAS` | Valuation class (drives G/L account determination) |
+| `PRICE_DETERM` | `MBEW-EKLAS` | Price determination: `2` Transaction-based, `3` Single-/multi-level |
+| `ML_ACTIVE` | `MBEW-MLAST` | Material ledger activated (`X`) |
+| `WITH_QM` | `MBEW-IPRKZ` | With quality inspection stock |
+| `FUTURE_PRICE` | `MBEW-ZKPRS` | Future standard price |
+| `FUTURE_PRICE_DATE`| `MBEW-ZKDAT` | Valid-from date for future price |
+| `PREV_PRICE` | `MBEW-VKSAL` | Previous period price |
+| `ORIGIN_GROUP` | `MBEW-KKZGR` | Origin group (costing — CO-PA) |
+| `PROFIT_CENTER` | `MBEW-PRCTR` | Profit center |
+| `DO_NOT_COST` | `MBEW-KALKZ` | Do not cost (`X` = excluded from product costing) |
+
+---
+
+### SALESDATA tax classification — `BAPIMLAN` (TABLES)
+
+Tax indicator per country / departure country / tax category. One row per combination.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MLAN-MATNR` | Material number |
+| `DEPCOUNTRY` | `MLAN-ALAND` | Departure country |
+| `TAX_TYPE_1` | `MLAN-TAXM1` | Tax category 1 (e.g. `1` Full, `0` Zero-rated) |
+| `TAX_TYPE_2` | `MLAN-TAXM2` | Tax category 2 |
+| `TAX_TYPE_3–9` | `MLAN-TAXM3`–`TAXM9` | Tax categories 3–9 (country-specific) |
+
+---
+
+### Quality Management — `BAPIQM` (TABLES, if available in EhP release)
+
+QM view. Activate with `HEADDATA-QUALITY_VIEW = 'X'`.
+
+| Structure field | SAP table.field | Description |
+|---|---|---|
+| `MATERIAL` | `MARC-MATNR` | Material number |
+| `PLANT` | `MARC-WERKS` | Plant |
+| `INSP_SETUP` | `MARC-QSSYS` | Inspection setup |
+| `QM_PROC_ACTIVE` | `MARC-QMATA` | QM in procurement active (`X`) |
+| `CERT_TYPE` | `MARC-QZGTP` | Certificate type |
+| `DOC_REQUIRED` | `MARC-DOKST` | Documentation required indicator |
+| `TARGET_QI` | `MARC-QPLOS` | Target quality inspection level |
+
+---
+
+### Full parameter list for `BAPI_MATERIAL_SAVEDATA`
+
+```abap
+CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
+  EXPORTING
+    headdata                  = ls_headdata           " BAPIMATHEAD
+  TABLES
+    clientdata                = lt_clientdata          " BAPIMATTR
+    clientdatax               = lt_clientdatax         " BAPIMATTRX
+    materialdescription       = lt_description         " BAPIMAKT
+    unitsofmeasure            = lt_uom                 " BAPIMARM
+    unitsofmeasurex           = lt_uomx                " BAPIMARMX
+    internationalarticlenumbers = lt_ean               " BAPIMEAN
+    salesdata                 = lt_salesdata           " BAPIMVKE
+    salesdatax                = lt_salesdatax          " BAPIMVKEX
+    taxclassifications        = lt_taxclass            " BAPIMLAN
+    purchasingdata            = lt_purchdata           " BAPIMARC
+    purchasingdatax           = lt_purchdatax          " BAPIMARCX
+    plantdata                 = lt_plantdata           " BAPIMARD
+    plantdatax                = lt_plantdatax          " BAPIMARDX
+    forecastparameters        = lt_forecast            " BAPIMAVEM
+    forecastparametersx       = lt_forecastx           " BAPIMAVEMX
+    storagelocationdata       = lt_sloc                " BAPIMARA
+    storagelocationdatax      = lt_slocx               " BAPIMARAX
+    valuationdata             = lt_valdata             " BAPIMMBW
+    valuationdatax            = lt_valdatax            " BAPIMMBWX
+    returnmessages            = return.                " BAPIRET2
+```
+
+> Only pass TABLES parameters for the views you have activated in `HEADDATA`.
+> Unused parameters can be left as empty internal tables — do not omit the
+> `TABLES` keyword itself when using the function module in older syntax.
+
+---
+
 ## Tips
 
 - Always check whether a standard SAP BAPI already covers the use case before building a custom one — search in transaction **BAPI** or SE37 with pattern `BAPI_<OBJECT>_*`.
